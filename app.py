@@ -175,8 +175,62 @@ fig4 = px.bar(
 st.plotly_chart(fig4, use_container_width=True)
 
 # -----------------------------
+# FUTURE TREND PREDICTION
+# -----------------------------
+
+st.subheader("Future Dengue Trend Prediction")
+
+data = data.sort_values("Year")
+
+# compute growth factor
+data["growth_factor"] = data["Cases"] / data["Cases"].shift(1)
+
+avg_growth = data["growth_factor"].mean()
+
+last_year = data["Year"].max()
+last_cases = data["Cases"].iloc[-1]
+
+future_years = 5
+
+future_data = []
+
+for i in range(1, future_years + 1):
+
+    year = last_year + i
+    pred_cases = last_cases * (avg_growth ** i)
+
+    future_data.append({
+        "Year": year,
+        "Cases": pred_cases
+    })
+
+future_df = pd.DataFrame(future_data)
+
+# combine past + future
+combined = pd.concat([
+    data[["Year","Cases"]],
+    future_df
+])
+
+combined["Type"] = ["Actual"]*len(data) + ["Predicted"]*len(future_df)
+import plotly.express as px
+
+fig_pred = px.line(
+    combined,
+    x="Year",
+    y="Cases",
+    color="Type",
+    markers=True,
+    title=f"Dengue Trend Forecast for {region}"
+)
+
+st.plotly_chart(fig_pred, use_container_width=True)
+st.metric("Average Growth Factor", round(avg_growth,2))
+# -----------------------------
 # FOOTER
 # -----------------------------
 
 st.write("---")
 st.write("Data Science Project: Dengue Risk Modeling using CLT and Lyapunov Stability")
+
+
