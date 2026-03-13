@@ -12,12 +12,61 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("Dengue Outbreak Stochastic Analysis Dashboard")
+# --------------------------------------------------
+# PROFESSIONAL PINK THEME
+# --------------------------------------------------
+
+st.markdown("""
+<style>
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Poppins', sans-serif;
+}
+
+.stApp {
+    background-color:#faf7fb;
+}
+
+.analysis-card {
+    background:white;
+    padding:25px;
+    border-radius:15px;
+    border-left:6px solid #e75480;
+    box-shadow:0px 4px 12px rgba(0,0,0,0.05);
+    margin-bottom:25px;
+}
+
+.section-title {
+    font-size:24px;
+    font-weight:600;
+    color:#c2185b;
+}
+
+.explain {
+    color:#555;
+    font-size:15px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------------------------------
+# TITLE
+# --------------------------------------------------
+
+st.markdown(
+"""
+<h1 style='text-align:center;color:#c2185b'>
+Dengue Outbreak Stochastic Analysis Dashboard
+</h1>
+""",
+unsafe_allow_html=True
+)
 
 st.write(
-"This dashboard analyzes dengue case dynamics across Indian regions "
-"using statistical inference, stochastic variability measures, "
-"and predictive growth modelling."
+"Statistical and stochastic modelling of dengue outbreaks across Indian regions."
 )
 
 # --------------------------------------------------
@@ -45,90 +94,90 @@ region = st.sidebar.selectbox(
 data = df[df["Region"] == region].sort_values("Year").copy()
 
 # --------------------------------------------------
-# BASIC METRICS
+# BASIC STATS
 # --------------------------------------------------
 
 mean_cases = data["Cases"].mean()
 std_cases = data["Cases"].std()
 var_cases = data["Cases"].var()
+
 n = len(data)
 
 # --------------------------------------------------
-# SECTION 1
 # CENTRAL LIMIT THEOREM
 # --------------------------------------------------
-
-st.header("Central Limit Theorem")
-
-st.write(
-"The Central Limit Theorem states that the distribution of sample means "
-"approaches a normal distribution as the sample size increases."
-)
-
-st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
 
 se = std_cases / np.sqrt(n)
 
 ci_low = mean_cases - 1.96 * se
 ci_high = mean_cases + 1.96 * se
 
-c1,c2 = st.columns(2)
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+
+st.markdown('<div class="section-title">Central Limit Theorem</div>', unsafe_allow_html=True)
+
+st.markdown(
+'<div class="explain">Sample means converge to a normal distribution as sample size increases.</div>',
+unsafe_allow_html=True
+)
+
+st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
+
+c1,c2,c3 = st.columns(3)
 
 c1.metric("Mean Cases", round(mean_cases,2))
-c2.metric("Standard Error", round(se,2))
+c2.metric("Std Deviation", round(std_cases,2))
+c3.metric("Standard Error", round(se,2))
 
 st.write("95% Confidence Interval:", round(ci_low,2), "to", round(ci_high,2))
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --------------------------------------------------
-# SECTION 2
 # VARIANCE
 # --------------------------------------------------
 
-st.header("Variance Analysis")
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
 
-st.write(
-"Variance measures the dispersion of dengue cases, representing "
-"the level of stochastic variability in the outbreak process."
+st.markdown('<div class="section-title">Variance Analysis</div>', unsafe_allow_html=True)
+
+st.markdown(
+'<div class="explain">Variance measures stochastic fluctuation in outbreak intensity.</div>',
+unsafe_allow_html=True
 )
 
 st.latex(r"Var(X) = \frac{1}{n}\sum (X_i - \mu)^2")
 
 st.metric("Variance", round(var_cases,2))
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --------------------------------------------------
-# SECTION 3
 # COEFFICIENT OF VARIATION
 # --------------------------------------------------
 
-st.header("Coefficient of Variation")
+cv = std_cases / mean_cases
 
-st.write(
-"The coefficient of variation measures relative variability "
-"and indicates outbreak instability relative to the mean."
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+
+st.markdown('<div class="section-title">Coefficient of Variation</div>', unsafe_allow_html=True)
+
+st.markdown(
+'<div class="explain">Relative variability compared to the mean outbreak level.</div>',
+unsafe_allow_html=True
 )
 
 st.latex(r"CV = \frac{\sigma}{\mu}")
 
-cv = std_cases / mean_cases
-
 st.metric("Coefficient of Variation", round(cv,3))
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --------------------------------------------------
-# SECTION 4
 # GROWTH FACTOR
 # --------------------------------------------------
 
-st.header("Growth Factor Estimation")
-
-st.write(
-"The growth factor measures how dengue cases change from one year "
-"to the next, capturing epidemic expansion or decline."
-)
-
-st.latex(r"G_t = \frac{Cases_t}{Cases_{t-1}}")
-
 data["growth"] = data["Cases"] / data["Cases"].shift(1)
-
 data["growth"] = data["growth"].replace([np.inf,-np.inf],np.nan)
 
 growth = data["growth"].dropna()
@@ -138,21 +187,24 @@ avg_growth = growth.median()
 if np.isnan(avg_growth):
     avg_growth = 1.05
 
-st.metric("Median Growth Factor", round(avg_growth,3))
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
 
-# --------------------------------------------------
-# SECTION 5
-# LYAPUNOV STABILITY
-# --------------------------------------------------
+st.markdown('<div class="section-title">Growth Factor Estimation</div>', unsafe_allow_html=True)
 
-st.header("Lyapunov Stability Analysis")
-
-st.write(
-"Lyapunov functions help determine whether the outbreak dynamics "
-"are stabilizing or diverging over time."
+st.markdown(
+'<div class="explain">Year-to-year multiplicative growth of dengue cases.</div>',
+unsafe_allow_html=True
 )
 
-st.latex(r"V(x) = x^2")
+st.latex(r"G_t = \frac{Cases_t}{Cases_{t-1}}")
+
+st.metric("Median Growth Factor", round(avg_growth,3))
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --------------------------------------------------
+# LYAPUNOV STABILITY
+# --------------------------------------------------
 
 data["V"] = data["Cases"]**2
 data["dV"] = data["V"].diff()
@@ -164,21 +216,26 @@ if score < 0:
 elif score < 100000:
     status = "Moderate Risk"
 else:
-    status = "High Outbreak Risk"
+    status = "High Risk"
+
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
+
+st.markdown('<div class="section-title">Lyapunov Stability</div>', unsafe_allow_html=True)
+
+st.markdown(
+'<div class="explain">Determines whether outbreak dynamics stabilize or diverge.</div>',
+unsafe_allow_html=True
+)
+
+st.latex(r"V(x) = x^2")
 
 st.metric("Stability Status", status)
 
+st.markdown('</div>', unsafe_allow_html=True)
+
 # --------------------------------------------------
-# SECTION 6
 # MONTE CARLO SIMULATION
 # --------------------------------------------------
-
-st.header("Monte Carlo Outbreak Simulation")
-
-st.write(
-"Monte Carlo simulation estimates possible future outbreak trajectories "
-"by sampling stochastic growth variations."
-)
 
 simulations = []
 
@@ -197,20 +254,22 @@ for i in range(1000):
 
 sim_mean = np.mean(simulations)
 
-st.metric("Expected Cases in 5 Years", round(sim_mean))
+st.markdown('<div class="analysis-card">', unsafe_allow_html=True)
 
-# --------------------------------------------------
-# SECTION 7
-# FUTURE PREDICTION
-# --------------------------------------------------
+st.markdown('<div class="section-title">Monte Carlo Simulation</div>', unsafe_allow_html=True)
 
-st.header("Future Growth Prediction")
-
-st.write(
-"Future dengue cases are projected using multiplicative growth dynamics."
+st.markdown(
+'<div class="explain">Simulates future outbreak scenarios using stochastic growth variability.</div>',
+unsafe_allow_html=True
 )
 
-st.latex(r"Cases_{t+1} = Cases_t \times G")
+st.metric("Expected Cases in 5 Years", round(sim_mean))
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --------------------------------------------------
+# FUTURE PREDICTION
+# --------------------------------------------------
 
 future = []
 current = last_cases
@@ -231,6 +290,10 @@ combined = pd.concat([data[["Year","Cases"]],future_df])
 
 combined["Type"] = ["Actual"]*len(data) + ["Predicted"]*len(future_df)
 
+st.header("Future Growth Prediction")
+
+st.latex(r"Cases_{t+1} = Cases_t \times G")
+
 fig = px.line(
     combined,
     x="Year",
@@ -242,7 +305,7 @@ fig = px.line(
 st.plotly_chart(fig,use_container_width=True)
 
 # --------------------------------------------------
-# CASE TREND
+# TREND GRAPH
 # --------------------------------------------------
 
 st.header("Observed Dengue Case Trend")
@@ -271,7 +334,7 @@ fig3 = px.histogram(
 st.plotly_chart(fig3,use_container_width=True)
 
 # --------------------------------------------------
-# DATA TABLE
+# DATA
 # --------------------------------------------------
 
 st.header("Dataset")
