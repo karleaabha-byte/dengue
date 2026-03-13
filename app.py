@@ -15,32 +15,28 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# CSS (APP STYLE)
+# SIMPLE APP STYLING
 # --------------------------------------------------
 
 st.markdown("""
 <style>
-
 .main-title {
 font-size:42px;
 font-weight:700;
 text-align:center;
 margin-bottom:5px;
 }
-
 .subtitle {
 text-align:center;
 color:gray;
 margin-bottom:30px;
 }
-
 div[data-testid="stMetric"]{
 background-color:white;
 border-radius:15px;
 padding:10px;
 box-shadow:0px 4px 10px rgba(0,0,0,0.05);
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -74,15 +70,12 @@ st.sidebar.header("Controls")
 
 regions = sorted(df["Region"].unique())
 
-region = st.sidebar.selectbox(
-"Select Region",
-regions
-)
+region = st.sidebar.selectbox("Select Region", regions)
 
-data = df[df["Region"] == region].sort_values("Year")
+data = df[df["Region"] == region].sort_values("Year").copy()
 
 # --------------------------------------------------
-# BASIC CALCULATIONS
+# BASIC STATISTICS
 # --------------------------------------------------
 
 mean_cases = data["Cases"].mean()
@@ -92,77 +85,62 @@ variance = data["Cases"].var()
 data["growth"] = data["Cases"].pct_change()
 growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
-avg_growth = growth.median() if len(growth)>0 else 0
+avg_growth = growth.median() if len(growth) > 0 else 0
 
 data["rolling_avg"] = data["Cases"].rolling(3).mean()
+
+# --------------------------------------------------
+# FANO FACTOR (important for outbreaks)
+# --------------------------------------------------
+
+fano = variance / mean_cases if mean_cases != 0 else np.nan
+
+# --------------------------------------------------
+# LYAPUNOV EXPONENT (ROBUST VERSION)
+# --------------------------------------------------
+
+epsilon = 1e-6
+
+ratios = (data["Cases"].shift(-1) + epsilon) / (data["Cases"] + epsilon)
+ratios = ratios.dropna()
+
+lyapunov = np.mean(np.log(ratios))
 
 # --------------------------------------------------
 # KPI METRICS
 # --------------------------------------------------
 
-col1,col2,col3,col4 = st.columns(4)
+col1,col2,col3,col4,col5 = st.columns(5)
 
 col1.metric("Mean Cases", round(mean_cases,1))
 col2.metric("Std Dev", round(std_cases,1))
 col3.metric("Variance", round(variance,1))
 col4.metric("Growth Rate", round(avg_growth,3))
+col5.metric("Fano Factor", round(fano,2))
 
 # --------------------------------------------------
-# CENTRAL LIMIT THEOREM
-# --------------------------------------------------
-
-st.header("Central Limit Theorem")
-
-st.write(
-"As sample size increases, the distribution of the sample mean approaches normal."
-)
-
-st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
-
-# --------------------------------------------------
-# COEFFICIENT OF VARIATION
-# --------------------------------------------------
-
-st.header("Coefficient of Variation")
-
-st.latex(r"CV=\frac{\sigma}{\mu}")
-
-cv = std_cases/mean_cases if mean_cases!=0 else np.nan
-
-st.write("Coefficient of Variation:", round(cv,3))
-
-# --------------------------------------------------
-# LYAPUNOV EXPONENT (FIXED)
+# LYAPUNOV SECTION
 # --------------------------------------------------
 
 st.header("Lyapunov Stability Analysis")
 
-st.write(
-"The Lyapunov exponent measures whether outbreak dynamics converge or diverge over time."
-)
-
-st.latex(r"\lambda = \frac{1}{n} \sum \log\left|\frac{x_{t+1}}{x_t}\right|")
-
-ratios = data["Cases"].shift(-1) / data["Cases"]
-ratios = ratios.replace([np.inf,-np.inf],np.nan).dropna()
-
-lyapunov = np.mean(np.log(np.abs(ratios)))
+st.latex(r"\lambda = \frac{1}{n} \sum \log\left(\frac{x_{t+1}+\epsilon}{x_t+\epsilon}\right)")
 
 c1,c2 = st.columns(2)
 
 c1.metric("Lyapunov Exponent", round(lyapunov,4))
 
-if lyapunov < 0:
+if lyapunov < -0.05:
     status = "Stable"
-elif lyapunov < 0.1:
-    status = "Moderately Stable"
+elif lyapunov < 0.05:
+    status = "Neutral"
 else:
-    status = "Chaotic Growth"
+    status = "Unstable"
 
 c2.metric("System Stability", status)
 
 # --------------------------------------------------
-# YEARWISE CASE BAR CHART
+# YEAR-WISE CASE BAR CHART
 # --------------------------------------------------
 
 st.header("Year-wise Dengue Cases")
@@ -200,7 +178,7 @@ st.plotly_chart(fig_area, use_container_width=True)
 # ROLLING TREND
 # --------------------------------------------------
 
-st.header("Smoothed Trend (3-Year Average)")
+st.header("Smoothed Trend (3-Year Moving Average)")
 
 fig_trend = go.Figure()
 
