@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # --------------------------------------------------
-# CSS (APP STYLE LOOK)
+# CSS (APP STYLE)
 # --------------------------------------------------
 
 st.markdown("""
@@ -51,7 +51,7 @@ box-shadow:0px 4px 10px rgba(0,0,0,0.05);
 st.markdown('<div class="main-title">Dengue Outbreak Dynamics</div>', unsafe_allow_html=True)
 
 st.markdown(
-'<div class="subtitle">Statistical and Stochastic Analysis of Dengue Cases</div>',
+'<div class="subtitle">Statistical & Stochastic Analysis of Dengue Cases</div>',
 unsafe_allow_html=True
 )
 
@@ -94,11 +94,6 @@ growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
 avg_growth = growth.median() if len(growth)>0 else 0
 
-data["V"] = data["Cases"]**2
-data["dV"] = data["V"].diff()
-
-lyapunov = data["dV"].mean()
-
 data["rolling_avg"] = data["Cases"].rolling(3).mean()
 
 # --------------------------------------------------
@@ -119,22 +114,10 @@ col4.metric("Growth Rate", round(avg_growth,3))
 st.header("Central Limit Theorem")
 
 st.write(
-"As sample size increases, the sampling distribution of the mean approaches a normal distribution."
+"As sample size increases, the distribution of the sample mean approaches normal."
 )
 
 st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
-
-# --------------------------------------------------
-# VARIANCE
-# --------------------------------------------------
-
-st.header("Variance")
-
-st.write("Variance measures dispersion in dengue case counts.")
-
-st.latex(r"Var(X)=\frac{1}{n}\sum (X_i-\mu)^2")
-
-st.write("Variance:", round(variance,2))
 
 # --------------------------------------------------
 # COEFFICIENT OF VARIATION
@@ -142,39 +125,44 @@ st.write("Variance:", round(variance,2))
 
 st.header("Coefficient of Variation")
 
-st.write("Relative variability compared to the mean.")
-
 st.latex(r"CV=\frac{\sigma}{\mu}")
 
 cv = std_cases/mean_cases if mean_cases!=0 else np.nan
 
-st.write("CV:", round(cv,3))
+st.write("Coefficient of Variation:", round(cv,3))
 
 # --------------------------------------------------
-# LYAPUNOV STABILITY
+# LYAPUNOV EXPONENT (FIXED)
 # --------------------------------------------------
 
-st.header("Lyapunov Stability")
+st.header("Lyapunov Stability Analysis")
 
-st.write("Used to evaluate stability of outbreak dynamics.")
+st.write(
+"The Lyapunov exponent measures whether outbreak dynamics converge or diverge over time."
+)
 
-st.latex(r"V(x)=x^2")
+st.latex(r"\lambda = \frac{1}{n} \sum \log\left|\frac{x_{t+1}}{x_t}\right|")
+
+ratios = data["Cases"].shift(-1) / data["Cases"]
+ratios = ratios.replace([np.inf,-np.inf],np.nan).dropna()
+
+lyapunov = np.mean(np.log(np.abs(ratios)))
 
 c1,c2 = st.columns(2)
 
-c1.metric("Lyapunov Value", round(lyapunov,2))
+c1.metric("Lyapunov Exponent", round(lyapunov,4))
 
 if lyapunov < 0:
     status = "Stable"
-elif lyapunov < 100000:
-    status = "Moderate Risk"
+elif lyapunov < 0.1:
+    status = "Moderately Stable"
 else:
-    status = "Unstable"
+    status = "Chaotic Growth"
 
 c2.metric("System Stability", status)
 
 # --------------------------------------------------
-# YEARWISE BAR CHART
+# YEARWISE CASE BAR CHART
 # --------------------------------------------------
 
 st.header("Year-wise Dengue Cases")
@@ -187,9 +175,7 @@ color="Cases",
 color_continuous_scale="RdPu"
 )
 
-fig_bar.update_layout(
-template="plotly_white"
-)
+fig_bar.update_layout(template="plotly_white")
 
 st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -214,7 +200,7 @@ st.plotly_chart(fig_area, use_container_width=True)
 # ROLLING TREND
 # --------------------------------------------------
 
-st.header("Smoothed Trend (3-Year Moving Average)")
+st.header("Smoothed Trend (3-Year Average)")
 
 fig_trend = go.Figure()
 
@@ -247,8 +233,6 @@ st.plotly_chart(fig_trend, use_container_width=True)
 # --------------------------------------------------
 
 st.header("Monte Carlo Outbreak Simulation")
-
-st.write("Simulates possible future outbreak trajectories.")
 
 st.latex(r"Cases_{t+1}=Cases_t(1+G+\epsilon)")
 
@@ -317,7 +301,7 @@ yaxis_title="Predicted Cases"
 st.plotly_chart(fig_sim,use_container_width=True)
 
 # --------------------------------------------------
-# FUTURE PREDICTION
+# FUTURE GROWTH PREDICTION
 # --------------------------------------------------
 
 st.header("Future Growth Prediction")
