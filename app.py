@@ -5,16 +5,19 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 # --------------------------------------------------
-# PAGE CONFIG
+# PAGE SETTINGS
 # --------------------------------------------------
 
-st.set_page_config(page_title="Dengue Stochastic Analysis", layout="wide")
+st.set_page_config(
+    page_title="Dengue Outbreak Analysis",
+    layout="wide"
+)
 
-st.title("Dengue Stochastic Analysis Dashboard")
+st.title("Dengue Outbreak Stochastic Analysis Dashboard")
 
 st.write(
-"This dashboard analyzes dengue outbreak dynamics using statistical "
-"and stochastic modelling techniques."
+"This dashboard analyzes dengue outbreak dynamics across Indian regions "
+"using statistical and stochastic modeling techniques."
 )
 
 # --------------------------------------------------
@@ -39,7 +42,7 @@ region = st.sidebar.selectbox(
     regions
 )
 
-data = df[df["Region"] == region].sort_values("Year").copy()
+data = df[df["Region"] == region].sort_values("Year")
 
 # --------------------------------------------------
 # BASIC STATS
@@ -47,7 +50,7 @@ data = df[df["Region"] == region].sort_values("Year").copy()
 
 mean_cases = data["Cases"].mean()
 std_cases = data["Cases"].std()
-var_cases = data["Cases"].var()
+variance = data["Cases"].var()
 
 n = len(data)
 
@@ -57,7 +60,9 @@ n = len(data)
 
 st.header("Central Limit Theorem")
 
-st.write("Sample means approach a normal distribution as sample size increases.")
+st.write(
+"Sample means tend toward a normal distribution as the sample size increases."
+)
 
 st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
 
@@ -80,11 +85,13 @@ st.write("95% Confidence Interval:", round(ci_low,2), "to", round(ci_high,2))
 
 st.header("Variance")
 
-st.write("Variance measures stochastic variability in outbreak intensity.")
+st.write(
+"Variance measures how widely dengue case counts fluctuate over time."
+)
 
 st.latex(r"Var(X)=\frac{1}{n}\sum (X_i-\mu)^2")
 
-st.metric("Variance", round(var_cases,2))
+st.metric("Variance", round(variance,2))
 
 # --------------------------------------------------
 # COEFFICIENT OF VARIATION
@@ -92,13 +99,15 @@ st.metric("Variance", round(var_cases,2))
 
 st.header("Coefficient of Variation")
 
-st.write("Relative variability of the outbreak compared to the mean.")
+st.write(
+"Coefficient of variation measures relative variability compared to the mean."
+)
 
 st.latex(r"CV=\frac{\sigma}{\mu}")
 
 cv = std_cases / mean_cases if mean_cases != 0 else np.nan
 
-st.metric("Coefficient of Variation", round(cv,3))
+st.metric("CV", round(cv,3))
 
 # --------------------------------------------------
 # GROWTH FACTOR
@@ -106,7 +115,9 @@ st.metric("Coefficient of Variation", round(cv,3))
 
 st.header("Growth Factor")
 
-st.write("Measures year-to-year change in dengue cases.")
+st.write(
+"Growth factor measures year-to-year percentage change in cases."
+)
 
 st.latex(r"G_t=\frac{Cases_t-Cases_{t-1}}{Cases_{t-1}}")
 
@@ -124,7 +135,9 @@ st.metric("Median Growth Rate", round(avg_growth,3))
 
 st.header("Lyapunov Stability")
 
-st.write("Evaluates whether outbreak dynamics converge or diverge.")
+st.write(
+"Lyapunov analysis evaluates whether outbreak dynamics are stable or diverging."
+)
 
 st.latex(r"V(x)=x^2")
 
@@ -147,10 +160,10 @@ else:
 c2.metric("System Stability", status)
 
 # --------------------------------------------------
-# OBSERVED TREND GRAPH
+# TREND GRAPH
 # --------------------------------------------------
 
-st.header("Observed Dengue Case Trend")
+st.header("Observed Dengue Trend")
 
 fig = px.line(
     data,
@@ -170,54 +183,85 @@ st.plotly_chart(fig, use_container_width=True)
 # MONTE CARLO SIMULATION
 # --------------------------------------------------
 
-st.header("Monte Carlo Simulation")
+st.header("Monte Carlo Outbreak Simulation")
 
-st.write("Simulates possible future outbreak trajectories using stochastic growth.")
+st.write(
+"Monte Carlo simulation generates multiple possible future outbreak paths "
+"using stochastic growth dynamics."
+)
+
+st.latex(r"Cases_{t+1}=Cases_t(1+G+\epsilon)")
+
+simulations = 200
+future_years = 5
 
 last_cases = data["Cases"].iloc[-1]
+last_year = int(data["Year"].max())
 
-years = 5
-simulations = 100
+years = list(range(last_year+1,last_year+future_years+1))
 
-sim_data = []
+paths = []
 
 for s in range(simulations):
 
     current = last_cases
     path = []
 
-    for y in range(years):
+    for y in years:
 
-        g = np.random.normal(avg_growth,0.1)
+        noise = np.random.normal(0,0.05)
 
-        current = current * (1 + g)
+        current = current * (1 + avg_growth + noise)
 
         path.append(current)
 
-    sim_data.append(path)
+    paths.append(path)
 
-sim_df = pd.DataFrame(sim_data).T
+paths = np.array(paths)
+
+mean_path = paths.mean(axis=0)
+upper = np.percentile(paths,95,axis=0)
+lower = np.percentile(paths,5,axis=0)
 
 fig_sim = go.Figure()
 
-for col in sim_df.columns:
-
-    fig_sim.add_trace(
-        go.Scatter(
-            y=sim_df[col],
-            mode="lines",
-            line=dict(color="rgba(231,84,128,0.15)"),
-            showlegend=False
-        )
+fig_sim.add_trace(
+    go.Scatter(
+        x=years,
+        y=upper,
+        line=dict(width=0),
+        showlegend=False
     )
+)
+
+fig_sim.add_trace(
+    go.Scatter(
+        x=years,
+        y=lower,
+        fill="tonexty",
+        fillcolor="rgba(231,84,128,0.2)",
+        line=dict(width=0),
+        name="Uncertainty Range"
+    )
+)
+
+fig_sim.add_trace(
+    go.Scatter(
+        x=years,
+        y=mean_path,
+        line=dict(color="#e75480",width=4),
+        mode="lines+markers",
+        name="Expected Cases"
+    )
+)
 
 fig_sim.update_layout(
     template="plotly_white",
-    xaxis_title="Future Years",
-    yaxis_title="Simulated Cases"
+    xaxis_title="Year",
+    yaxis_title="Predicted Cases"
 )
 
-st.plotly_chart(fig_sim, use_container_width=True)
+st.plotly_chart(fig_sim,use_container_width=True)
 
 # --------------------------------------------------
 # FUTURE PREDICTION
@@ -225,20 +269,22 @@ st.plotly_chart(fig_sim, use_container_width=True)
 
 st.header("Future Growth Prediction")
 
-st.write("Future cases estimated using multiplicative growth dynamics.")
+st.write(
+"Future cases estimated using multiplicative growth dynamics."
+)
 
 st.latex(r"Cases_{t+1}=Cases_t(1+G)")
 
 future = []
+
 current = last_cases
-last_year = data["Year"].max()
 
 for i in range(1,6):
 
-    current = current * (1 + avg_growth)
+    current = current*(1+avg_growth)
 
     future.append({
-        "Year": last_year + i,
+        "Year": last_year+i,
         "Cases": current
     })
 
@@ -259,7 +305,7 @@ fig2 = px.line(
 
 fig2.update_layout(template="plotly_white")
 
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2,use_container_width=True)
 
 # --------------------------------------------------
 # DISTRIBUTION
@@ -276,7 +322,7 @@ fig3 = px.histogram(
 
 fig3.update_layout(template="plotly_white")
 
-st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig3,use_container_width=True)
 
 # --------------------------------------------------
 # DATA
