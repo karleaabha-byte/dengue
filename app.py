@@ -4,9 +4,9 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# --------------------------------------------------
+# ------------------------------------------------
 # PAGE CONFIG
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.set_page_config(
     page_title="Dengue Outbreak Analytics",
@@ -14,13 +14,12 @@ st.set_page_config(
     layout="wide"
 )
 
-# --------------------------------------------------
+# ------------------------------------------------
 # STYLE
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.markdown("""
 <style>
-
 .main-title{
 font-size:42px;
 font-weight:700;
@@ -39,20 +38,19 @@ border-radius:12px;
 padding:10px;
 box-shadow:0px 4px 8px rgba(0,0,0,0.05);
 }
-
 </style>
 """, unsafe_allow_html=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # HEADER
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.markdown('<div class="main-title">Dengue Outbreak Dynamics Dashboard</div>', unsafe_allow_html=True)
 st.markdown('<div class="subtitle">Statistical + Stochastic Analysis of Dengue Cases</div>', unsafe_allow_html=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # LOAD DATA
-# --------------------------------------------------
+# ------------------------------------------------
 
 df = pd.read_csv("clean_dengue_india_regions2.csv")
 
@@ -61,9 +59,9 @@ df["Cases"] = pd.to_numeric(df["Cases"], errors="coerce")
 
 df = df.dropna()
 
-# --------------------------------------------------
+# ------------------------------------------------
 # SIDEBAR
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.sidebar.header("Controls")
 
@@ -73,22 +71,23 @@ region = st.sidebar.selectbox("Select Region", regions)
 
 data = df[df["Region"] == region].sort_values("Year")
 
-# --------------------------------------------------
+# ------------------------------------------------
 # BASIC STATISTICS
-# --------------------------------------------------
+# ------------------------------------------------
 
 mean_cases = data["Cases"].mean()
 std_cases = data["Cases"].std()
 variance = data["Cases"].var()
 
+# growth rate
 data["growth"] = data["Cases"].pct_change()
 growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
 avg_growth = growth.median() if len(growth) > 0 else 0
 
-# --------------------------------------------------
+# ------------------------------------------------
 # FANO FACTOR
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Outbreak Variability")
 
@@ -96,24 +95,24 @@ st.latex(r"F = \frac{Variance}{Mean}")
 
 fano = variance / mean_cases if mean_cases != 0 else np.nan
 
-# --------------------------------------------------
-# LYAPUNOV EXPONENT
-# --------------------------------------------------
+# ------------------------------------------------
+# LYAPUNOV EXPONENT (FIXED)
+# ------------------------------------------------
 
 st.header("Lyapunov Stability Analysis")
 
-st.latex(r"\lambda = \frac{1}{n}\sum log\left(\frac{x_{t+1}+\epsilon}{x_t+\epsilon}\right)")
+st.latex(r"\lambda = mean(\log(1 + growth))")
 
-epsilon = 1e-6
+growth_clean = growth[growth > -0.99]
 
-ratios = (data["Cases"].shift(-1)+epsilon)/(data["Cases"]+epsilon)
-ratios = ratios.dropna()
+if len(growth_clean) > 0:
+    lyapunov = np.mean(np.log(1 + growth_clean))
+else:
+    lyapunov = 0
 
-lyapunov = np.mean(np.log(ratios))
-
-# --------------------------------------------------
+# ------------------------------------------------
 # METRICS
-# --------------------------------------------------
+# ------------------------------------------------
 
 c1,c2,c3,c4,c5 = st.columns(5)
 
@@ -123,26 +122,31 @@ c3.metric("Variance", round(variance,1))
 c4.metric("Growth Rate", round(avg_growth,3))
 c5.metric("Fano Factor", round(fano,2))
 
-# --------------------------------------------------
-# LYAPUNOV RESULT
-# --------------------------------------------------
+# ------------------------------------------------
+# STABILITY INTERPRETATION
+# ------------------------------------------------
 
 col1,col2 = st.columns(2)
 
 col1.metric("Lyapunov Exponent", round(lyapunov,4))
 
-if lyapunov < -0.05:
+if lyapunov < -0.01:
+    status="Declining"
+
+elif -0.01 <= lyapunov <= 0.01:
     status="Stable"
-elif lyapunov < 0.05:
-    status="Neutral"
+
+elif 0.01 < lyapunov <= 0.08:
+    status="Growing"
+
 else:
-    status="Chaotic"
+    status="Volatile"
 
 col2.metric("System Stability", status)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # YEARWISE CASE GRAPH
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Year-wise Dengue Cases")
 
@@ -158,9 +162,9 @@ fig_bar.update_layout(template="plotly_white")
 
 st.plotly_chart(fig_bar,use_container_width=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # ROLLING TREND
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Smoothed Outbreak Trend")
 
@@ -192,13 +196,11 @@ fig_trend.update_layout(template="plotly_white")
 
 st.plotly_chart(fig_trend,use_container_width=True)
 
-# --------------------------------------------------
-# HEATMAP (REGION vs YEAR)
-# --------------------------------------------------
+# ------------------------------------------------
+# HEATMAP
+# ------------------------------------------------
 
 st.header("Dengue Outbreak Heatmap")
-
-st.write("Shows outbreak intensity across regions and years.")
 
 heatmap_df = df.pivot_table(
 index="Region",
@@ -218,9 +220,9 @@ fig_heat.update_layout(height=700,template="plotly_white")
 
 st.plotly_chart(fig_heat,use_container_width=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # MONTE CARLO SIMULATION
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Monte Carlo Outbreak Simulation")
 
@@ -290,9 +292,9 @@ yaxis_title="Predicted Cases"
 
 st.plotly_chart(fig_sim,use_container_width=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # FUTURE GROWTH PREDICTION
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Future Growth Prediction")
 
@@ -329,9 +331,9 @@ fig_pred.update_layout(template="plotly_white")
 
 st.plotly_chart(fig_pred,use_container_width=True)
 
-# --------------------------------------------------
+# ------------------------------------------------
 # DATASET
-# --------------------------------------------------
+# ------------------------------------------------
 
 st.header("Dataset")
 
