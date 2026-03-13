@@ -76,22 +76,10 @@ data = df[df["Region"] == region].sort_values("Year")
 # ------------------------------------------------
 
 data["growth"] = data["Cases"].pct_change()
+
 growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
 avg_growth = growth.median() if len(growth) > 0 else 0
-
-# ------------------------------------------------
-# FANO FACTOR
-# ------------------------------------------------
-
-st.header("Outbreak Variability")
-
-st.latex(r"F = \frac{Variance}{Mean}")
-
-mean_cases = data["Cases"].mean()
-variance = data["Cases"].var()
-
-fano = variance / mean_cases if mean_cases != 0 else np.nan
 
 # ------------------------------------------------
 # LYAPUNOV EXPONENT
@@ -112,11 +100,10 @@ else:
 # METRICS
 # ------------------------------------------------
 
-c1,c2,c3 = st.columns(3)
+c1,c2 = st.columns(2)
 
 c1.metric("Growth Rate", round(avg_growth,3))
-c2.metric("Fano Factor", round(fano,2))
-c3.metric("Lyapunov Exponent", round(lyapunov,4))
+c2.metric("Lyapunov Exponent", round(lyapunov,4))
 
 # ------------------------------------------------
 # STABILITY CLASSIFICATION
