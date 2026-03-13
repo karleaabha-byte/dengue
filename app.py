@@ -19,7 +19,7 @@ st.write("Analysis using CLT and Lyapunov Stability")
 # LOAD DATA
 # -----------------------------
 
-df = pd.read_csv("clean_dengue_india_regions.csv")
+df = pd.read_csv("clean_dengue_india_regions2.csv")
 
 # ensure correct types
 df["Year"] = df["Year"].astype(int)
