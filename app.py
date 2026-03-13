@@ -46,7 +46,7 @@ box-shadow:0px 4px 8px rgba(0,0,0,0.05);
 # ------------------------------------------------
 
 st.markdown('<div class="main-title">Dengue Outbreak Dynamics Dashboard</div>', unsafe_allow_html=True)
-st.markdown('<div class="subtitle">Statistical + Stochastic Analysis of Dengue Cases</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Stochastic Analysis and Prediction of Dengue Cases</div>', unsafe_allow_html=True)
 
 # ------------------------------------------------
 # LOAD DATA
@@ -72,14 +72,9 @@ region = st.sidebar.selectbox("Select Region", regions)
 data = df[df["Region"] == region].sort_values("Year")
 
 # ------------------------------------------------
-# BASIC STATISTICS
+# GROWTH RATE
 # ------------------------------------------------
 
-mean_cases = data["Cases"].mean()
-std_cases = data["Cases"].std()
-variance = data["Cases"].var()
-
-# growth rate
 data["growth"] = data["Cases"].pct_change()
 growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
@@ -93,10 +88,13 @@ st.header("Outbreak Variability")
 
 st.latex(r"F = \frac{Variance}{Mean}")
 
+mean_cases = data["Cases"].mean()
+variance = data["Cases"].var()
+
 fano = variance / mean_cases if mean_cases != 0 else np.nan
 
 # ------------------------------------------------
-# LYAPUNOV EXPONENT (FIXED)
+# LYAPUNOV EXPONENT
 # ------------------------------------------------
 
 st.header("Lyapunov Stability Analysis")
@@ -114,21 +112,15 @@ else:
 # METRICS
 # ------------------------------------------------
 
-c1,c2,c3,c4,c5 = st.columns(5)
+c1,c2,c3 = st.columns(3)
 
-c1.metric("Mean Cases", round(mean_cases,1))
-c2.metric("Std Dev", round(std_cases,1))
-c3.metric("Variance", round(variance,1))
-c4.metric("Growth Rate", round(avg_growth,3))
-c5.metric("Fano Factor", round(fano,2))
+c1.metric("Growth Rate", round(avg_growth,3))
+c2.metric("Fano Factor", round(fano,2))
+c3.metric("Lyapunov Exponent", round(lyapunov,4))
 
 # ------------------------------------------------
-# STABILITY INTERPRETATION
+# STABILITY CLASSIFICATION
 # ------------------------------------------------
-
-col1,col2 = st.columns(2)
-
-col1.metric("Lyapunov Exponent", round(lyapunov,4))
 
 if lyapunov < -0.01:
     status="Declining"
@@ -142,7 +134,7 @@ elif 0.01 < lyapunov <= 0.08:
 else:
     status="Volatile"
 
-col2.metric("System Stability", status)
+st.metric("System Stability", status)
 
 # ------------------------------------------------
 # YEARWISE CASE GRAPH
@@ -293,7 +285,7 @@ yaxis_title="Predicted Cases"
 st.plotly_chart(fig_sim,use_container_width=True)
 
 # ------------------------------------------------
-# FUTURE GROWTH PREDICTION
+# FUTURE PREDICTION
 # ------------------------------------------------
 
 st.header("Future Growth Prediction")
