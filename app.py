@@ -8,45 +8,17 @@ import plotly.express as px
 # --------------------------------------------------
 
 st.set_page_config(
-    page_title="Dengue Epidemiology Dashboard",
+    page_title="Dengue Stochastic Analysis Dashboard",
     layout="wide"
 )
 
-# --------------------------------------------------
-# CUTE STYLE
-# --------------------------------------------------
+st.title("Dengue Outbreak Stochastic Analysis Dashboard")
 
-st.markdown("""
-<style>
-
-.stApp {
-    background-color:#FFF7FB;
-}
-
-h1 {
-    color:#FF5D8F;
-    text-align:center;
-}
-
-h2,h3 {
-    color:#FF7AA2;
-}
-
-div[data-testid="metric-container"] {
-    background-color:#FFE5EC;
-    padding:14px;
-    border-radius:12px;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-# --------------------------------------------------
-# TITLE
-# --------------------------------------------------
-
-st.title("🦟 Dengue Epidemiology Dashboard")
-st.write("🌸 Statistical Outbreak Analysis Across India")
+st.write(
+"This dashboard analyzes dengue case dynamics across Indian regions "
+"using statistical inference, stochastic variability measures, "
+"and predictive growth modelling."
+)
 
 # --------------------------------------------------
 # LOAD DATA
@@ -61,7 +33,7 @@ df["Cases"] = df["Cases"].astype(int)
 # SIDEBAR
 # --------------------------------------------------
 
-st.sidebar.header("🧭 Dashboard Controls")
+st.sidebar.header("Controls")
 
 regions = sorted(df["Region"].unique())
 
@@ -73,215 +45,235 @@ region = st.sidebar.selectbox(
 data = df[df["Region"] == region].sort_values("Year").copy()
 
 # --------------------------------------------------
-# CLT SECTION
+# BASIC METRICS
 # --------------------------------------------------
-
-st.subheader("📊 Central Limit Theorem Analysis")
-
-st.latex(r"\bar{X} \sim N(\mu, \frac{\sigma}{\sqrt{n}})")
-
-st.latex(r"CI = \bar{X} \pm 1.96 \frac{\sigma}{\sqrt{n}}")
 
 mean_cases = data["Cases"].mean()
 std_cases = data["Cases"].std()
 var_cases = data["Cases"].var()
-
 n = len(data)
+
+# --------------------------------------------------
+# SECTION 1
+# CENTRAL LIMIT THEOREM
+# --------------------------------------------------
+
+st.header("Central Limit Theorem")
+
+st.write(
+"The Central Limit Theorem states that the distribution of sample means "
+"approaches a normal distribution as the sample size increases."
+)
+
+st.latex(r"\bar{X} \sim N(\mu,\frac{\sigma}{\sqrt{n}})")
 
 se = std_cases / np.sqrt(n)
 
 ci_low = mean_cases - 1.96 * se
 ci_high = mean_cases + 1.96 * se
 
-# --------------------------------------------------
-# LYAPUNOV SECTION
-# --------------------------------------------------
+c1,c2 = st.columns(2)
 
-st.subheader("📉 Lyapunov Stability Analysis")
+c1.metric("Mean Cases", round(mean_cases,2))
+c2.metric("Standard Error", round(se,2))
 
-st.latex(r"V(x) = x^2")
-
-st.latex(r"\Delta V = V(x_{t+1}) - V(x_t)")
-
-data["V"] = data["Cases"]**2
-data["dV"] = data["V"].diff()
-
-stability_score = data["dV"].mean()
-
-if stability_score < 0:
-    stability = "🟢 Stable"
-elif stability_score < 100000:
-    stability = "🟡 Moderate Risk"
-else:
-    stability = "🔴 High Risk"
+st.write("95% Confidence Interval:", round(ci_low,2), "to", round(ci_high,2))
 
 # --------------------------------------------------
-# GROWTH FACTOR SECTION
+# SECTION 2
+# VARIANCE
 # --------------------------------------------------
 
-st.subheader("📈 Growth Factor Estimation")
+st.header("Variance Analysis")
+
+st.write(
+"Variance measures the dispersion of dengue cases, representing "
+"the level of stochastic variability in the outbreak process."
+)
+
+st.latex(r"Var(X) = \frac{1}{n}\sum (X_i - \mu)^2")
+
+st.metric("Variance", round(var_cases,2))
+
+# --------------------------------------------------
+# SECTION 3
+# COEFFICIENT OF VARIATION
+# --------------------------------------------------
+
+st.header("Coefficient of Variation")
+
+st.write(
+"The coefficient of variation measures relative variability "
+"and indicates outbreak instability relative to the mean."
+)
+
+st.latex(r"CV = \frac{\sigma}{\mu}")
+
+cv = std_cases / mean_cases
+
+st.metric("Coefficient of Variation", round(cv,3))
+
+# --------------------------------------------------
+# SECTION 4
+# GROWTH FACTOR
+# --------------------------------------------------
+
+st.header("Growth Factor Estimation")
+
+st.write(
+"The growth factor measures how dengue cases change from one year "
+"to the next, capturing epidemic expansion or decline."
+)
 
 st.latex(r"G_t = \frac{Cases_t}{Cases_{t-1}}")
 
-data["growth_factor"] = data["Cases"] / data["Cases"].shift(1)
+data["growth"] = data["Cases"] / data["Cases"].shift(1)
 
-data["growth_factor"] = data["growth_factor"].replace([np.inf, -np.inf], np.nan)
+data["growth"] = data["growth"].replace([np.inf,-np.inf],np.nan)
 
-valid_growth = data["growth_factor"].dropna()
+growth = data["growth"].dropna()
 
-avg_growth = valid_growth.median()
+avg_growth = growth.median()
 
 if np.isnan(avg_growth):
     avg_growth = 1.05
 
+st.metric("Median Growth Factor", round(avg_growth,3))
+
 # --------------------------------------------------
-# FUTURE PREDICTION MODEL
+# SECTION 5
+# LYAPUNOV STABILITY
 # --------------------------------------------------
 
-st.subheader("🔮 Future Outbreak Prediction")
+st.header("Lyapunov Stability Analysis")
+
+st.write(
+"Lyapunov functions help determine whether the outbreak dynamics "
+"are stabilizing or diverging over time."
+)
+
+st.latex(r"V(x) = x^2")
+
+data["V"] = data["Cases"]**2
+data["dV"] = data["V"].diff()
+
+score = data["dV"].mean()
+
+if score < 0:
+    status = "Stable"
+elif score < 100000:
+    status = "Moderate Risk"
+else:
+    status = "High Outbreak Risk"
+
+st.metric("Stability Status", status)
+
+# --------------------------------------------------
+# SECTION 6
+# MONTE CARLO SIMULATION
+# --------------------------------------------------
+
+st.header("Monte Carlo Outbreak Simulation")
+
+st.write(
+"Monte Carlo simulation estimates possible future outbreak trajectories "
+"by sampling stochastic growth variations."
+)
+
+simulations = []
+
+last_cases = data["Cases"].iloc[-1]
+
+for i in range(1000):
+    
+    g = np.random.normal(avg_growth,0.1)
+    
+    future = last_cases
+    
+    for j in range(5):
+        future = future * g
+        
+    simulations.append(future)
+
+sim_mean = np.mean(simulations)
+
+st.metric("Expected Cases in 5 Years", round(sim_mean))
+
+# --------------------------------------------------
+# SECTION 7
+# FUTURE PREDICTION
+# --------------------------------------------------
+
+st.header("Future Growth Prediction")
+
+st.write(
+"Future dengue cases are projected using multiplicative growth dynamics."
+)
 
 st.latex(r"Cases_{t+1} = Cases_t \times G")
 
+future = []
+current = last_cases
 last_year = data["Year"].max()
-last_cases = data["Cases"].iloc[-1]
 
-future_years = 5
-future_data = []
-
-current_cases = last_cases
-
-for i in range(1, future_years + 1):
-
-    current_cases = current_cases * avg_growth
-
-    future_data.append({
+for i in range(1,6):
+    
+    current = current * avg_growth
+    
+    future.append({
         "Year": last_year + i,
-        "Cases": round(current_cases)
+        "Cases": current
     })
 
-future_df = pd.DataFrame(future_data)
+future_df = pd.DataFrame(future)
 
-combined = pd.concat([
-    data[["Year", "Cases"]],
-    future_df
-])
+combined = pd.concat([data[["Year","Cases"]],future_df])
 
-combined["Type"] = ["Actual"] * len(data) + ["Predicted"] * len(future_df)
+combined["Type"] = ["Actual"]*len(data) + ["Predicted"]*len(future_df)
 
-# --------------------------------------------------
-# METRICS
-# --------------------------------------------------
-
-st.subheader(f"📍 Region: {region}")
-
-c1, c2, c3, c4, c5 = st.columns(5)
-
-c1.metric("Average Cases", round(mean_cases, 2))
-c2.metric("Variance", round(var_cases, 2))
-c3.metric("CLT Lower", round(ci_low, 2))
-c4.metric("CLT Upper", round(ci_high, 2))
-c5.metric("Growth Factor", round(avg_growth, 3))
-
-st.info(f"Lyapunov Stability Status: **{stability}**")
-
-# --------------------------------------------------
-# TREND GRAPH
-# --------------------------------------------------
-
-st.subheader("📈 Dengue Cases Trend")
-
-fig1 = px.line(
-    data,
+fig = px.line(
+    combined,
     x="Year",
     y="Cases",
-    markers=True,
-    color_discrete_sequence=["#FF8FAB"]
+    color="Type",
+    markers=True
 )
 
-st.plotly_chart(fig1, use_container_width=True)
+st.plotly_chart(fig,use_container_width=True)
 
 # --------------------------------------------------
-# LYAPUNOV GRAPH
+# CASE TREND
 # --------------------------------------------------
 
-st.subheader("📉 Lyapunov Function Trend")
+st.header("Observed Dengue Case Trend")
 
 fig2 = px.line(
     data,
     x="Year",
-    y="V",
-    markers=True,
-    color_discrete_sequence=["#CDB4DB"]
+    y="Cases",
+    markers=True
 )
 
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig2,use_container_width=True)
 
 # --------------------------------------------------
 # DISTRIBUTION
 # --------------------------------------------------
 
-st.subheader("📊 Cases Distribution")
+st.header("Case Distribution")
 
 fig3 = px.histogram(
     data,
     x="Cases",
-    nbins=15,
-    color_discrete_sequence=["#BDE0FE"]
+    nbins=15
 )
 
-st.plotly_chart(fig3, use_container_width=True)
-
-# --------------------------------------------------
-# PREDICTION GRAPH
-# --------------------------------------------------
-
-st.subheader("🔮 Future Dengue Prediction")
-
-fig4 = px.line(
-    combined,
-    x="Year",
-    y="Cases",
-    color="Type",
-    markers=True,
-    color_discrete_sequence=["#FF8FAB", "#A2D2FF"]
-)
-
-st.plotly_chart(fig4, use_container_width=True)
-
-# --------------------------------------------------
-# TOP REGIONS
-# --------------------------------------------------
-
-st.subheader("🏆 Top 10 Regions by Average Cases")
-
-state_mean = df.groupby("Region")["Cases"].mean().reset_index()
-
-top_states = state_mean.sort_values(
-    "Cases",
-    ascending=False
-).head(10)
-
-fig5 = px.bar(
-    top_states,
-    x="Region",
-    y="Cases",
-    color="Cases",
-    color_continuous_scale="pinkyl"
-)
-
-st.plotly_chart(fig5, use_container_width=True)
+st.plotly_chart(fig3,use_container_width=True)
 
 # --------------------------------------------------
 # DATA TABLE
 # --------------------------------------------------
 
-st.subheader("📋 Data Table")
+st.header("Dataset")
 
 st.dataframe(data)
-
-# --------------------------------------------------
-# FOOTER
-# --------------------------------------------------
-
-st.write("---")
-st.caption("🦟 Dengue Risk Modeling | Central Limit Theorem • Lyapunov Stability • Growth Prediction")
