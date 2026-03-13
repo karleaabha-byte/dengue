@@ -3,33 +3,65 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# -----------------------------
-# PAGE SETTINGS
-# -----------------------------
+# --------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------
 
 st.set_page_config(
-    page_title="India Dengue Risk Dashboard",
+    page_title="Dengue Epidemiology Dashboard",
     layout="wide"
 )
 
-st.title("🦟 Dengue Risk Analysis Dashboard (India)")
-st.write("Analysis using CLT and Lyapunov Stability")
+# --------------------------------------------------
+# CUTE STYLE
+# --------------------------------------------------
 
-# -----------------------------
+st.markdown("""
+<style>
+
+.stApp {
+    background-color:#FFF7FB;
+}
+
+h1 {
+    color:#FF5D8F;
+    text-align:center;
+}
+
+h2,h3 {
+    color:#FF7AA2;
+}
+
+div[data-testid="metric-container"] {
+    background-color:#FFE5EC;
+    padding:14px;
+    border-radius:12px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# --------------------------------------------------
+# TITLE
+# --------------------------------------------------
+
+st.title("🦟 Dengue Epidemiology Dashboard")
+st.write("🌸 Statistical Outbreak Analysis Across India")
+
+# --------------------------------------------------
 # LOAD DATA
-# -----------------------------
+# --------------------------------------------------
 
 df = pd.read_csv("clean_dengue_india_regions2.csv")
 
-# ensure correct types
 df["Year"] = df["Year"].astype(int)
 df["Cases"] = df["Cases"].astype(int)
 
-# -----------------------------
-# SIDEBAR CONTROLS
-# -----------------------------
+# --------------------------------------------------
+# SIDEBAR
+# --------------------------------------------------
 
-st.sidebar.header("Controls")
+st.sidebar.header("🧭 Dashboard Controls")
 
 regions = sorted(df["Region"].unique())
 
@@ -38,12 +70,17 @@ region = st.sidebar.selectbox(
     regions
 )
 
-# filter data
-data = df[df["Region"] == region]
+data = df[df["Region"] == region].sort_values("Year").copy()
 
-# -----------------------------
-# BASIC STATISTICS
-# -----------------------------
+# --------------------------------------------------
+# CLT SECTION
+# --------------------------------------------------
+
+st.subheader("📊 Central Limit Theorem Analysis")
+
+st.latex(r"\bar{X} \sim N(\mu, \frac{\sigma}{\sqrt{n}})")
+
+st.latex(r"CI = \bar{X} \pm 1.96 \frac{\sigma}{\sqrt{n}}")
 
 mean_cases = data["Cases"].mean()
 std_cases = data["Cases"].std()
@@ -51,112 +88,171 @@ var_cases = data["Cases"].var()
 
 n = len(data)
 
-# CLT confidence interval
 se = std_cases / np.sqrt(n)
 
 ci_low = mean_cases - 1.96 * se
 ci_high = mean_cases + 1.96 * se
 
-# -----------------------------
-# LYAPUNOV STABILITY
-# -----------------------------
+# --------------------------------------------------
+# LYAPUNOV SECTION
+# --------------------------------------------------
 
-data = data.sort_values("Year")
+st.subheader("📉 Lyapunov Stability Analysis")
 
-# Lyapunov candidate
+st.latex(r"V(x) = x^2")
+
+st.latex(r"\Delta V = V(x_{t+1}) - V(x_t)")
+
 data["V"] = data["Cases"]**2
-
-# derivative approximation
 data["dV"] = data["V"].diff()
 
 stability_score = data["dV"].mean()
 
-# -----------------------------
-# RISK CLASSIFICATION
-# -----------------------------
-
 if stability_score < 0:
-    risk = "Stable"
+    stability = "🟢 Stable"
 elif stability_score < 100000:
-    risk = "Moderate Risk"
+    stability = "🟡 Moderate Risk"
 else:
-    risk = "High Outbreak Risk"
+    stability = "🔴 High Risk"
 
-# -----------------------------
-# DISPLAY METRICS
-# -----------------------------
+# --------------------------------------------------
+# GROWTH FACTOR SECTION
+# --------------------------------------------------
 
-st.subheader(f"Region: {region}")
+st.subheader("📈 Growth Factor Estimation")
 
-col1, col2, col3, col4 = st.columns(4)
+st.latex(r"G_t = \frac{Cases_t}{Cases_{t-1}}")
 
-col1.metric("Average Cases", round(mean_cases,2))
-col2.metric("Variance", round(var_cases,2))
-col3.metric("CLT CI Lower", round(ci_low,2))
-col4.metric("CLT CI Upper", round(ci_high,2))
+data["growth_factor"] = data["Cases"] / data["Cases"].shift(1)
 
-st.write(f"**Lyapunov Stability Status:** {risk}")
+data["growth_factor"] = data["growth_factor"].replace([np.inf, -np.inf], np.nan)
 
-# -----------------------------
+valid_growth = data["growth_factor"].dropna()
+
+avg_growth = valid_growth.median()
+
+if np.isnan(avg_growth):
+    avg_growth = 1.05
+
+# --------------------------------------------------
+# FUTURE PREDICTION MODEL
+# --------------------------------------------------
+
+st.subheader("🔮 Future Outbreak Prediction")
+
+st.latex(r"Cases_{t+1} = Cases_t \times G")
+
+last_year = data["Year"].max()
+last_cases = data["Cases"].iloc[-1]
+
+future_years = 5
+future_data = []
+
+current_cases = last_cases
+
+for i in range(1, future_years + 1):
+
+    current_cases = current_cases * avg_growth
+
+    future_data.append({
+        "Year": last_year + i,
+        "Cases": round(current_cases)
+    })
+
+future_df = pd.DataFrame(future_data)
+
+combined = pd.concat([
+    data[["Year", "Cases"]],
+    future_df
+])
+
+combined["Type"] = ["Actual"] * len(data) + ["Predicted"] * len(future_df)
+
+# --------------------------------------------------
+# METRICS
+# --------------------------------------------------
+
+st.subheader(f"📍 Region: {region}")
+
+c1, c2, c3, c4, c5 = st.columns(5)
+
+c1.metric("Average Cases", round(mean_cases, 2))
+c2.metric("Variance", round(var_cases, 2))
+c3.metric("CLT Lower", round(ci_low, 2))
+c4.metric("CLT Upper", round(ci_high, 2))
+c5.metric("Growth Factor", round(avg_growth, 3))
+
+st.info(f"Lyapunov Stability Status: **{stability}**")
+
+# --------------------------------------------------
 # TREND GRAPH
-# -----------------------------
+# --------------------------------------------------
 
-st.subheader("Dengue Cases Trend")
+st.subheader("📈 Dengue Cases Trend")
 
-fig = px.line(
+fig1 = px.line(
     data,
     x="Year",
     y="Cases",
     markers=True,
-    title=f"Dengue Cases in {region}"
+    color_discrete_sequence=["#FF8FAB"]
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig1, use_container_width=True)
 
-# -----------------------------
-# LYAPUNOV FUNCTION GRAPH
-# -----------------------------
+# --------------------------------------------------
+# LYAPUNOV GRAPH
+# --------------------------------------------------
 
-st.subheader("Lyapunov Function V(x) = Cases²")
+st.subheader("📉 Lyapunov Function Trend")
 
 fig2 = px.line(
     data,
     x="Year",
     y="V",
     markers=True,
-    title="Lyapunov Function Trend"
+    color_discrete_sequence=["#CDB4DB"]
 )
 
 st.plotly_chart(fig2, use_container_width=True)
 
-# -----------------------------
-# HISTOGRAM (CLT visualization)
-# -----------------------------
+# --------------------------------------------------
+# DISTRIBUTION
+# --------------------------------------------------
 
-st.subheader("Distribution of Dengue Cases")
+st.subheader("📊 Cases Distribution")
 
 fig3 = px.histogram(
     data,
     x="Cases",
     nbins=15,
-    title="Cases Distribution"
+    color_discrete_sequence=["#BDE0FE"]
 )
 
 st.plotly_chart(fig3, use_container_width=True)
 
-# -----------------------------
-# TABLE VIEW
-# -----------------------------
+# --------------------------------------------------
+# PREDICTION GRAPH
+# --------------------------------------------------
 
-st.subheader("Dataset Preview")
+st.subheader("🔮 Future Dengue Prediction")
 
-st.dataframe(data)
+fig4 = px.line(
+    combined,
+    x="Year",
+    y="Cases",
+    color="Type",
+    markers=True,
+    color_discrete_sequence=["#FF8FAB", "#A2D2FF"]
+)
 
-# -----------------------------
-# NATIONAL COMPARISON
-# -----------------------------
+st.plotly_chart(fig4, use_container_width=True)
 
-st.subheader("Top 10 High Dengue Regions")
+# --------------------------------------------------
+# TOP REGIONS
+# --------------------------------------------------
+
+st.subheader("🏆 Top 10 Regions by Average Cases")
 
 state_mean = df.groupby("Region")["Cases"].mean().reset_index()
 
@@ -165,72 +261,27 @@ top_states = state_mean.sort_values(
     ascending=False
 ).head(10)
 
-fig4 = px.bar(
+fig5 = px.bar(
     top_states,
     x="Region",
     y="Cases",
-    title="Average Dengue Cases by Region"
+    color="Cases",
+    color_continuous_scale="pinkyl"
 )
 
-st.plotly_chart(fig4, use_container_width=True)
+st.plotly_chart(fig5, use_container_width=True)
 
-# -----------------------------
-# FUTURE TREND PREDICTION
-# -----------------------------
+# --------------------------------------------------
+# DATA TABLE
+# --------------------------------------------------
 
-st.subheader("Future Dengue Trend Prediction")
+st.subheader("📋 Data Table")
 
-data = data.sort_values("Year")
+st.dataframe(data)
 
-# compute growth factor
-data["growth_factor"] = data["Cases"] / data["Cases"].shift(1)
-
-avg_growth = data["growth_factor"].mean()
-
-last_year = data["Year"].max()
-last_cases = data["Cases"].iloc[-1]
-
-future_years = 5
-
-future_data = []
-
-for i in range(1, future_years + 1):
-
-    year = last_year + i
-    pred_cases = last_cases * (avg_growth ** i)
-
-    future_data.append({
-        "Year": year,
-        "Cases": pred_cases
-    })
-
-future_df = pd.DataFrame(future_data)
-
-# combine past + future
-combined = pd.concat([
-    data[["Year","Cases"]],
-    future_df
-])
-
-combined["Type"] = ["Actual"]*len(data) + ["Predicted"]*len(future_df)
-import plotly.express as px
-
-fig_pred = px.line(
-    combined,
-    x="Year",
-    y="Cases",
-    color="Type",
-    markers=True,
-    title=f"Dengue Trend Forecast for {region}"
-)
-
-st.plotly_chart(fig_pred, use_container_width=True)
-st.metric("Average Growth Factor", round(avg_growth,2))
-# -----------------------------
+# --------------------------------------------------
 # FOOTER
-# -----------------------------
+# --------------------------------------------------
 
 st.write("---")
-st.write("Data Science Project: Dengue Risk Modeling using CLT and Lyapunov Stability")
-
-
+st.caption("🦟 Dengue Risk Modeling | Central Limit Theorem • Lyapunov Stability • Growth Prediction")
