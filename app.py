@@ -9,34 +9,37 @@ import plotly.graph_objects as go
 # --------------------------------------------------
 
 st.set_page_config(
-    page_title="Dengue Outbreak Dynamics",
+    page_title="Dengue Outbreak Analytics",
     page_icon="🦟",
     layout="wide"
 )
 
 # --------------------------------------------------
-# SIMPLE APP STYLING
+# STYLE
 # --------------------------------------------------
 
 st.markdown("""
 <style>
-.main-title {
+
+.main-title{
 font-size:42px;
 font-weight:700;
 text-align:center;
-margin-bottom:5px;
 }
-.subtitle {
+
+.subtitle{
 text-align:center;
 color:gray;
 margin-bottom:30px;
 }
+
 div[data-testid="stMetric"]{
 background-color:white;
-border-radius:15px;
+border-radius:12px;
 padding:10px;
-box-shadow:0px 4px 10px rgba(0,0,0,0.05);
+box-shadow:0px 4px 8px rgba(0,0,0,0.05);
 }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -44,12 +47,8 @@ box-shadow:0px 4px 10px rgba(0,0,0,0.05);
 # HEADER
 # --------------------------------------------------
 
-st.markdown('<div class="main-title">Dengue Outbreak Dynamics</div>', unsafe_allow_html=True)
-
-st.markdown(
-'<div class="subtitle">Statistical & Stochastic Analysis of Dengue Cases</div>',
-unsafe_allow_html=True
-)
+st.markdown('<div class="main-title">Dengue Outbreak Dynamics Dashboard</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Statistical + Stochastic Analysis of Dengue Cases</div>', unsafe_allow_html=True)
 
 # --------------------------------------------------
 # LOAD DATA
@@ -72,7 +71,7 @@ regions = sorted(df["Region"].unique())
 
 region = st.sidebar.selectbox("Select Region", regions)
 
-data = df[df["Region"] == region].sort_values("Year").copy()
+data = df[df["Region"] == region].sort_values("Year")
 
 # --------------------------------------------------
 # BASIC STATISTICS
@@ -87,60 +86,62 @@ growth = data["growth"].replace([np.inf,-np.inf],np.nan).dropna()
 
 avg_growth = growth.median() if len(growth) > 0 else 0
 
-data["rolling_avg"] = data["Cases"].rolling(3).mean()
+# --------------------------------------------------
+# FANO FACTOR
+# --------------------------------------------------
 
-# --------------------------------------------------
-# FANO FACTOR (important for outbreaks)
-# --------------------------------------------------
+st.header("Outbreak Variability")
+
+st.latex(r"F = \frac{Variance}{Mean}")
 
 fano = variance / mean_cases if mean_cases != 0 else np.nan
 
 # --------------------------------------------------
-# LYAPUNOV EXPONENT (ROBUST VERSION)
+# LYAPUNOV EXPONENT
 # --------------------------------------------------
+
+st.header("Lyapunov Stability Analysis")
+
+st.latex(r"\lambda = \frac{1}{n}\sum log\left(\frac{x_{t+1}+\epsilon}{x_t+\epsilon}\right)")
 
 epsilon = 1e-6
 
-ratios = (data["Cases"].shift(-1) + epsilon) / (data["Cases"] + epsilon)
+ratios = (data["Cases"].shift(-1)+epsilon)/(data["Cases"]+epsilon)
 ratios = ratios.dropna()
 
 lyapunov = np.mean(np.log(ratios))
 
 # --------------------------------------------------
-# KPI METRICS
+# METRICS
 # --------------------------------------------------
 
-col1,col2,col3,col4,col5 = st.columns(5)
+c1,c2,c3,c4,c5 = st.columns(5)
 
-col1.metric("Mean Cases", round(mean_cases,1))
-col2.metric("Std Dev", round(std_cases,1))
-col3.metric("Variance", round(variance,1))
-col4.metric("Growth Rate", round(avg_growth,3))
-col5.metric("Fano Factor", round(fano,2))
+c1.metric("Mean Cases", round(mean_cases,1))
+c2.metric("Std Dev", round(std_cases,1))
+c3.metric("Variance", round(variance,1))
+c4.metric("Growth Rate", round(avg_growth,3))
+c5.metric("Fano Factor", round(fano,2))
 
 # --------------------------------------------------
-# LYAPUNOV SECTION
+# LYAPUNOV RESULT
 # --------------------------------------------------
 
-st.header("Lyapunov Stability Analysis")
+col1,col2 = st.columns(2)
 
-st.latex(r"\lambda = \frac{1}{n} \sum \log\left(\frac{x_{t+1}+\epsilon}{x_t+\epsilon}\right)")
-
-c1,c2 = st.columns(2)
-
-c1.metric("Lyapunov Exponent", round(lyapunov,4))
+col1.metric("Lyapunov Exponent", round(lyapunov,4))
 
 if lyapunov < -0.05:
-    status = "Stable"
+    status="Stable"
 elif lyapunov < 0.05:
-    status = "Neutral"
+    status="Neutral"
 else:
-    status = "Unstable"
+    status="Chaotic"
 
-c2.metric("System Stability", status)
+col2.metric("System Stability", status)
 
 # --------------------------------------------------
-# YEAR-WISE CASE BAR CHART
+# YEARWISE CASE GRAPH
 # --------------------------------------------------
 
 st.header("Year-wise Dengue Cases")
@@ -155,30 +156,15 @@ color_continuous_scale="RdPu"
 
 fig_bar.update_layout(template="plotly_white")
 
-st.plotly_chart(fig_bar, use_container_width=True)
-
-# --------------------------------------------------
-# AREA OUTBREAK GRAPH
-# --------------------------------------------------
-
-st.header("Outbreak Intensity Over Time")
-
-fig_area = px.area(
-data,
-x="Year",
-y="Cases",
-color_discrete_sequence=["#ff4da6"]
-)
-
-fig_area.update_layout(template="plotly_white")
-
-st.plotly_chart(fig_area, use_container_width=True)
+st.plotly_chart(fig_bar,use_container_width=True)
 
 # --------------------------------------------------
 # ROLLING TREND
 # --------------------------------------------------
 
-st.header("Smoothed Trend (3-Year Moving Average)")
+st.header("Smoothed Outbreak Trend")
+
+data["rolling"]=data["Cases"].rolling(3).mean()
 
 fig_trend = go.Figure()
 
@@ -195,16 +181,42 @@ line=dict(color="#ff4da6")
 fig_trend.add_trace(
 go.Scatter(
 x=data["Year"],
-y=data["rolling_avg"],
+y=data["rolling"],
 mode="lines",
-name="3-Year Avg",
-line=dict(color="#7a0177", width=4)
+name="3-Year Moving Avg",
+line=dict(color="#7a0177",width=4)
 )
 )
 
 fig_trend.update_layout(template="plotly_white")
 
-st.plotly_chart(fig_trend, use_container_width=True)
+st.plotly_chart(fig_trend,use_container_width=True)
+
+# --------------------------------------------------
+# HEATMAP (REGION vs YEAR)
+# --------------------------------------------------
+
+st.header("Dengue Outbreak Heatmap")
+
+st.write("Shows outbreak intensity across regions and years.")
+
+heatmap_df = df.pivot_table(
+index="Region",
+columns="Year",
+values="Cases",
+aggfunc="sum"
+)
+
+fig_heat = px.imshow(
+heatmap_df,
+color_continuous_scale="RdPu",
+aspect="auto",
+labels=dict(x="Year",y="Region",color="Cases")
+)
+
+fig_heat.update_layout(height=700,template="plotly_white")
+
+st.plotly_chart(fig_heat,use_container_width=True)
 
 # --------------------------------------------------
 # MONTE CARLO SIMULATION
@@ -214,26 +226,26 @@ st.header("Monte Carlo Outbreak Simulation")
 
 st.latex(r"Cases_{t+1}=Cases_t(1+G+\epsilon)")
 
-last_cases = data["Cases"].iloc[-1]
-last_year = int(data["Year"].max())
+last_cases=data["Cases"].iloc[-1]
+last_year=int(data["Year"].max())
 
-future_years = 5
-simulations = 200
+future_years=5
+simulations=200
 
-years = list(range(last_year+1,last_year+future_years+1))
+years=list(range(last_year+1,last_year+future_years+1))
 
-paths = []
+paths=[]
 
 for s in range(simulations):
 
-    current = last_cases
+    current=last_cases
     path=[]
 
     for y in years:
 
-        noise = np.random.normal(0,0.05)
+        noise=np.random.normal(0,0.05)
 
-        current = current*(1+avg_growth+noise)
+        current=current*(1+avg_growth+noise)
 
         path.append(current)
 
@@ -254,9 +266,9 @@ go.Scatter(
 x=years,
 y=lower,
 fill="tonexty",
-fillcolor="rgba(255,77,166,0.2)",
+fillcolor="rgba(255,0,150,0.2)",
 line=dict(width=0),
-name="Uncertainty Range"
+name="Uncertainty"
 )
 )
 
@@ -294,8 +306,8 @@ for i in range(1,6):
     current=current*(1+avg_growth)
 
     future.append({
-    "Year": last_year+i,
-    "Cases": current
+    "Year":last_year+i,
+    "Cases":current
     })
 
 future_df=pd.DataFrame(future)
@@ -318,7 +330,7 @@ fig_pred.update_layout(template="plotly_white")
 st.plotly_chart(fig_pred,use_container_width=True)
 
 # --------------------------------------------------
-# DATA TABLE
+# DATASET
 # --------------------------------------------------
 
 st.header("Dataset")
